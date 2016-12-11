@@ -3,36 +3,66 @@ from flask import request
 import json
 from utils import *
 from message_unit import message_unit
-from bot_config import *
+import bot_config
+from multiprocessing import Queue
+import threading
+import api
 
-
+channels = {}
 app = Flask(__name__)
+incoming_q = Queue()
+outgoing_q = Queue()
 
+running = False
+def new_channel(email, q):
+    channels.update({email:q})
 
-
-webook_update = {
-        "name": "Meetings",
-        "targetUrl": target_url
-    }
-sendPUT(webhook_url+"/"+webhook_id, webook_update)
-
+'''
+def route(mu):
+    if mu.person_email in channels:
+        channels[mu.person_email].put(mu)
+    else:
+        cq.put(mu)
+'''
 @app.route("/", methods=['POST'])
 def index():
     print("got message")
     data = request.json
-    sender = data['data']['personEmail']
-    if sender != bot_email:
-        geturl = "https://api.ciscospark.com/v1/messages/{0}".format(data['data']['id'])
-        msg_json = sendGET(geturl)
+    if data['data']['personEmail'] != bot_config.bot_email:
+       # geturl = "https://api.ciscospark.com/v1/messages/{0}".format(data['data']['id'])
+        msg_json = sendGET(api.MESSAGES+"/{0}".format(data['data']['id']), bot_config.auth_header)
         msg_dict = json.loads(msg_json)
-        mu = message_unit(msg_dict.get('text'),msg_dict.get('roomId'))
+       # print(msg_dict)
+        mu = message_unit(msg_dict.get('text'),msg_dict.get('roomId'), msg_dict.get('personEmail'))
+        print("mf 1")
+        incoming_q.put(mu)
+        #route(mu)
+    return 'OK'
 
-get_team_list_url = "https://api.ciscospark.com/v1/team/memberships?teamId=Y2lzY29zcGFyazovL3VzL1RFQU0vMWI1YzJkMjAtOGVmYi0xMWU2LWE2ZTMtNzE2ZmRlMTc5NDMz"
-team_members = sendGET(get_team_list_url)
-team_dict = json.loads(team_members)
-print(team_dict)
+#get_team_list_url = "https://api.ciscospark.com/v1/team/memberships?teamId=Y2lzY29zcGFyazovL3VzL1RFQU0vMWI1YzJkMjAtOGVmYi0xMWU2LWE2ZTMtNzE2ZmRlMTc5NDMz"
+#team_members = sendGET(get_team_list_url)
+#team_dict = json.loads(team_members)
+#print(team_dict)
+def send():
+    while running:
+        if not outgoing_q.empty():
+            print("mf 4")
+            mu = outgoing_q.get()
+            if mu.room_id == None:
+                sendPOST(api.MESSAGES, {"toPersonEmail": mu.person_email, "text": mu.response}, bot_config.auth_header)
+            else:
+                sendPOST(api.MESSAGES, {"roomId": mu.room_id, "text": mu.response}, bot_config.auth_header)
 
-
-if __name__ == "__main__":
+def start():
     #app.debug = True
+    global running
+    running = True
+    webook_update = {
+        "name": "Meetings",
+        "targetUrl": bot_config.target_url
+    }
+    sendPUT(api.WEBHOOKS + "/" + bot_config.webhook_id, webook_update, bot_config.auth_header)
+    send_thread = threading.Thread(target=send, name="send thread")
+    send_thread.daemon = True
+    send_thread.start()
     app.run()

@@ -1,15 +1,19 @@
 import unittest
+from threading import RLock
 class priority_queue:
     def __init__(self):
         self.heap_list = [0]
         self.size = 0
+        self.rlock = RLock()
 
     def insert(self, item):
+        self.rlock.acquire()
         self.heap_list.append(item)
         self.size += 1
-        self.perc_up(self.size)
+        self.__perc_up(self.size)
+        self.rlock.release()
 
-    def perc_up(self, index):
+    def __perc_up(self, index):
         while index//2 > 0:
             if self.heap_list[index] < self.heap_list[index//2]:
                 self.heap_list[index // 2], self.heap_list[index] = self.heap_list[index], self.heap_list[index // 2]
@@ -20,15 +24,17 @@ class priority_queue:
             return self.heap_list[1]
 
     def del_min(self):
+        self.rlock.acquire()
         if self.size > 0:
             ret_val = self.heap_list[1]
             self.heap_list[1] = self.heap_list[self.size]
             self.size -= 1
             self.heap_list.pop()
-            self.perc_down(1)
+            self.__perc_down(1)
             return ret_val
+        self.rlock.release()
 
-    def perc_down(self, index):
+    def __perc_down(self, index):
         def get_min_child(index):
             if index * 2 + 1 > self.size:
                 return index * 2
@@ -50,7 +56,7 @@ class priority_queue:
     def __contains__(self, item):
         return item in self.heap_list
 
-    def __iter__(self):
+    def __iter__(self):  #TODO returns 0 element too
         return iter(self.heap_list)
 
 class test(unittest.TestCase):
