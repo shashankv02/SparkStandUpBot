@@ -49,9 +49,11 @@ def send():
             print("mf 4")
             mu = outgoing_q.get()
             if mu.room_id == None:
-                sendPOST(api.MESSAGES, {"toPersonEmail": mu.person_email, "text": mu.response}, bot_config.auth_header)
+                print("sending to person. "+mu.person_email+" "+mu.response)
+
+                sendPOST(api.MESSAGES, {"toPersonEmail": mu.person_email, "markdown": mu.response}, bot_config.auth_header)
             else:
-                sendPOST(api.MESSAGES, {"roomId": mu.room_id, "text": mu.response}, bot_config.auth_header)
+                sendPOST(api.MESSAGES, {"roomId": mu.room_id, "markdown": mu.response}, bot_config.auth_header)
 
 def start():
     #app.debug = True

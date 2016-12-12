@@ -50,11 +50,25 @@ class priority_queue:
                 self.heap_list[index], self.heap_list[min_child] = self.heap_list[min_child], self.heap_list[index]
             index = min_child
 
+    def delete(self, item):
+        self.heap_list.remove(item)
+        self.size -= 1
+        i = self.size//2
+        while i >0:
+            self.__perc_down(i)
+            i-=1
+
+
+
+
+
     def __len__(self):
         return self.size
 
     def __contains__(self, item):
         return item in self.heap_list
+
+
 
     def __iter__(self):  #TODO returns 0 element too
         return iter(self.heap_list)

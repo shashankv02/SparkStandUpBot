@@ -1,0 +1,3 @@
+END_TIME = 60
+default_questions = ["What did you work on yesterday?", "What are you planning to work on today?", "Are you blocked on anything?", "When do you think you will be able complete current task?"]
+wizard = ["Hi, What do you wan to name this meeting?", "Enter emails of participants seperated by spaces.", "Which days do you want to run the standup?", "What time do you want the standup? Enter in HH:MM format.", "Thank you. Meeting has been created succesfully.\n Daily meeting report will be sent to you. If you also want the report to be shared in a team room, add me to the room and type /addroom meeting_name"]

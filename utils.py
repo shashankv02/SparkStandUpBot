@@ -1,11 +1,10 @@
 import requests
+import json
 
 messages_url = "https://api.ciscospark.com/v1/messages/"
 
-#bearer = 'MTg4YjQ2NWMtMGY5NS00NDY3LWI0N2QtYWQ3MTcwY2U1ODkzYWY3ZDAyNWUtOTM2'
 import traceback
 def sendGET(url, header):
-    #header = {"Content-type": "application/json; charset=utf-8", header}
     try:
         response = requests.get(url, headers=header)
     except:
@@ -20,7 +19,6 @@ def sendPOST(url, payload, header):
         print("sendPOST exception")
 
 def sendPUT(url, data, header):
-   # header = { "Authorization": "Bearer "+bearer}
     try:
         requests.put(url, data=data, headers=header)
 
@@ -28,4 +26,10 @@ def sendPUT(url, data, header):
         print(e)
         traceback.print_exc()
         print("sendPUT exception")
+
+def fetch_display_name(email, header):
+    response = sendGET("https://api.ciscospark.com/v1/people?email=" + email, header)
+    return json.loads(response).get('displayName')
+
+
 
