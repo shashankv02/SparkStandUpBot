@@ -60,6 +60,21 @@ def remove_room(owner, name, room_id):
         else:
             return "This room is not subscribed for meeting "+name
     return "You don't have any meeting named "+name
+def add(owner, name, email):
+    su = _fetch_standup(owner, name)
+    if su:
+        su.members[email] = None
+        return email + " has been added to " + name
+    return "You don't have any meeting named "+name
+
+def delete(owner, name, email):
+    su = _fetch_standup(owner, name)
+    if su:
+        su.members[email] = None
+        return email + " has been removed from " + name
+    return "You don't have any meeting named "+name
+
+
 
 def owned_standups(email, name=None):
     owned = []
@@ -67,7 +82,9 @@ def owned_standups(email, name=None):
         if isinstance(s, standup):
             if s.owner == email:
                 owned.append(s.name)
-    return str(owned)
+    if owned:
+        return str(owned)
+    return "You don't own any meetings."
 
 def _fetch_standup(owner, name):
     su = None
@@ -122,6 +139,7 @@ def run(owner, name):
         return "You don't own any standup with name "+name
     su.run()
 
+
 def skip_next(owner, name):
     su = _fetch_standup(owner, name)
     if not su:
@@ -175,6 +193,8 @@ class standup():
         elif self.state == CREATING:
             if self.index == 0:
                 if(validate_name(person, text)):
+                    if len(text.split()) != 1:
+                        return "Please don't use spaces in name."
                     self.name = text
                 else:
                     return "You already have a standup with same name. Please choose another name."
@@ -271,7 +291,7 @@ class standup():
             subscriptions.update({member: self})   #TODO synchronize
             self.state = RUNNING
             self.index = 0
-            standup_oq.put(message_unit(None, None, member, "Hey!" + "It's time for standup!"))
+            standup_oq.put(message_unit(None, None, member, "Hey! " + "It's time for standup!"))
             standup_oq.put(message_unit(None, None, member, default_questions[self.index]))
 
 

@@ -33,12 +33,12 @@ def process(mu):
         print("mf 3")
         oq.put(mu)
 
-    elif cmd.startswith("/show"):
+    elif cmd.startswith("/report"):
         try:
             cmd = cmd.split()[1]  #name
             mu.response = standup.report(mu.person_email, cmd)
         except IndexError:
-            mu.response = "usage: /show meeting_name"
+            mu.response = "usage: /report meeting_name"
 
         oq.put(mu)
     elif cmd.startswith("/run"):
@@ -57,7 +57,7 @@ def process(mu):
             mu.response = "usage: /when meeting_name"
         oq.put(mu)
 
-    elif cmd.startswith("/delete"):
+    elif cmd.startswith("/cancel"):
         try:
             cmd = cmd.split()[1]  # name
             mu.response = standup.delete_standup(mu.person_email, cmd)
@@ -92,9 +92,45 @@ def process(mu):
        oq.put(mu)
 
 
+    elif cmd == "/help":
+        resp = "/newstandup - create a new standup\n\n" \
+                "/owned - see standups created by you\n\n" \
+               "/report 'standup name' - see report\n\n" \
+               "/run 'standup name - run the standup\n\n" \
+                "/when 'standup name' - show next scheduled time\n\n" \
+                "/cancel 'standup name' - delete standup\n\n" \
+                "/skipnext 'standup name' - skip next scheduled standup\n\n" \
+                "/addroom 'standup name' - report will be shared in the room\n\n" \
+                "/removeroom 'standup name' - stop sharing report in the room\n\n" \
+                "/add 'standupname' 'email' - add new participant to standup\n\n" \
+               "/delete 'standupname' 'email' - delete new participant to standup\n\n"
+
+        mu.response = resp
+        oq.put(mu)
+
+    elif cmd.startswith("/add"):
+        try:
+            cmd = cmd.split()  # standup name
+            mu.response = standup.add(mu.person_email, cmd[1], cmd[2])
+        except IndexError:
+            mu.response = "usage: /add 'standup name' 'email'"
+        oq.put(mu)
+
+    elif cmd.startswith("/delete"):
+        try:
+            cmd = cmd.split()  # standup name
+            mu.response = standup.delete(mu.person_email, cmd[1], cmd[2])
+        except IndexError:
+            mu.response = "usage: /delete 'standup name' 'email'"
+        oq.put(mu)
+
+
     else:
         if mu.person_email in standup.subscriptions:
             mu.response = standup.subscriptions[mu.person_email].process(mu.text, mu.person_email)
+            oq.put(mu)
+        else:
+            mu.response = "try /help for help"
             oq.put(mu)
 
 def timer(_condition):
