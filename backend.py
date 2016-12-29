@@ -91,6 +91,16 @@ def process(mu):
        except IndexError:
            mu.response = "usage: /skipnext 'meeting name'"
        oq.put(mu)
+
+    elif cmd.startswith("/viewmeeting"):
+     #   print("got viewqeustions")
+        try:
+            cmd = cmd.split()[1]
+            mu.response = standup.view_meeting(mu.person_email, cmd)
+        except IndexError:
+            mu.response = "usage: /viewmeeting 'meeting name'"
+        oq.put(mu)
+
     elif cmd.startswith("/viewquestions"):
         print("got viewqeustions")
         try:
@@ -115,6 +125,7 @@ def process(mu):
             lst = cmd.split()
             cmd = lst[1]
             question = " ".join(lst[2:])
+            print(question)
             mu.response = standup.add_question(mu.person_email, cmd, question)
         except IndexError:
             mu.response = "usage: /addquestion 'new question'"
@@ -137,6 +148,7 @@ def process(mu):
 
     elif cmd == "/help":
         resp = "/newmeeting  - create a new meeting \n\n" \
+                "/viewmeeting 'meeting name - show details of the meeting \n\n" \
                 "/owned - see meetings created by you\n\n" \
                "/report 'meeting name' - see report\n\n" \
                "/run 'meeting name - run the meeting \n\n" \

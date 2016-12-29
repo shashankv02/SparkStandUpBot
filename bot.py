@@ -50,7 +50,6 @@ def send():
             mu = outgoing_q.get()
             if mu.room_id == None:
                 print("sending to person. "+mu.person_email+" "+mu.response)
-
                 sendPOST(api.MESSAGES, {"toPersonEmail": mu.person_email, "markdown": mu.response}, bot_config.auth_header)
             else:
                 sendPOST(api.MESSAGES, {"roomId": mu.room_id, "markdown": mu.response}, bot_config.auth_header)

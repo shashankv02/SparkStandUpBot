@@ -95,7 +95,7 @@ def add_room(owner, name, room_id):
     su = _fetch_standup(owner, name)
     if su:
         su.reporting_rooms.append(room_id)
-        return "Room subscribed."
+        return "Report will be shared in this room."
     return "You don't have any meeting named "+name
 
 def remove_room(owner, name, room_id):
@@ -168,15 +168,25 @@ def report(owner, name, stp=None):  #name, owner combination will be unique   #T
             return "No standups found with the given name."
     else:
         su = stp
-    answer = ""
-    print(su.answers)
+    answer = "#_"+ su.name + "_ report for the day " + "_" + str(datetime.today().date()) +"_ \n\n ---"
+  #  print(su.answers)
     for i in range(len(su.questions)):
         answer += "\n"
         answer += "##"+su.questions[i] +"\n"
         for member in su.answers:
-            answer += "\n"+ member +" \n"
+            answer += "\n"+ member
             if i < len(su.answers[member]):
-                answer += "> _"+su.answers[member][i] + "_\n"
+                #answer += "> _"+su.answers[member][i] + "_\n\n"
+                answer += ": _" + su.answers[member][i] + "_\n\n"
+
+   # print(su.answers)
+    #print(su.members)
+    absentees = [m for m in su.members if m not in su.answers]
+    print(absentees)
+    for a in absentees:
+        answer += a + " "
+    if absentees:
+        answer += " didn't participate in the meeting.\n"
     return answer
 
 def run(owner, name):
@@ -202,6 +212,15 @@ def validate_name(owner, name):
         return False
     return True
 
+def view_meeting(owner, name):
+   # print("validating name")
+    su = _fetch_standup(owner, name)
+    if su:
+        return str(su)
+    else:
+        return "You don't have any meeting named "+ name
+
+
 class standup():
     def __init__(self, owner):
         #standup_interface.__init__(oq)
@@ -224,17 +243,17 @@ class standup():
 
     def process(self, text, person = None):
         if self.state == RUNNING:
-            print("got standup res")
-            print(len(self.answers[person]))
-            print(len(default_questions))
+            #print("got standup res")
+            #print(len(self.answers[person]))
+           # print(len(default_questions))
             self.answers[person].append(text)
-            if len(self.answers[person]) >= len(default_questions):
+            if len(self.answers[person]) >= len(self.questions):
                 print("got full responses from "+person)
                 standup_oq.put(message_unit(None, None, person, "Thank you. :)" ))
                 subscriptions.pop(person)
             else:
                 print("sending next question.")
-                standup_oq.put(message_unit(None, None, person, default_questions[len(self.answers[person])]))
+                standup_oq.put(message_unit(None, None, person, self.questions[len(self.answers[person])]))
 
         elif self.state == CREATING:
             if self.index == 0:
@@ -251,8 +270,11 @@ class standup():
 
 
             elif self.index == 2:
-                days = list(text.lower().split())
-                week = {'mon': 0, 'tue': 1, 'wed': 2, 'thu': 3, 'fri': 4, 'sat': 5, 'sun': 6}   #TODO validate input
+                week = {'mon': 0, 'tue': 1, 'wed': 2, 'thu': 3, 'fri': 4, 'sat': 5, 'sun': 6}  # TODO validate input
+                if text == "week":
+                    days = week
+                else:
+                    days = list(text.lower().split())
                 invalid_days = [day for day in days if day not in week]
                 if invalid_days:
                     res = "These days are not valid "+ str(invalid_days) + "\n\nPlease enter any of sun, mon, tue, wed, thu, fri, sat."
@@ -262,12 +284,11 @@ class standup():
                     self.days |= 1 << week[day]
             elif self.index == 3:
                 try:
-                    print("shashank wants in validating time")
                     self.time = tuple(map(int, text.split(":")))   #TODO Validate
                     if self.time[0] > 23 or self.time[1] > 59 or self.time[0] < 0 or self.time[1] < 0:
                         return "Invalid time! Try again."
                 except ValueError:
-                    print("exception")
+                  #  print("exception")
                     return "Invalid time. Please enter time in HH:MM format."
 
                 self.upcoming = standup.find_upcoming(self.days, self.time[0], self.time[1])
@@ -277,7 +298,9 @@ class standup():
                 print("returning ans")
                 if self.index == len(wizard) - 1:
                     subscriptions.pop(self.owner)
-                    print("inserting to standups")
+                   # print("inserting to standups")
+                    for m in self.members:
+                        standup_oq.put(message_unit(None, None, m, "\n\nHey! You have been added to meeting " + self.name + " by " + self.owner))
                     self.state = CREATED
                     self.index = -1
                     update_standup(self)
@@ -346,6 +369,8 @@ class standup():
 
 
     def run(self):
+        if not self.questions:
+            return
         print("running")
         t = Timer(END_TIME, self.end_meeting)
         t.start()
@@ -355,17 +380,19 @@ class standup():
             self.state = RUNNING
             self.index = 0
             standup_oq.put(message_unit(None, None, member, "Hey! " + "It's time for "+ self.name + "!"))
-            standup_oq.put(message_unit(None, None, member, default_questions[self.index]))
+            standup_oq.put(message_unit(None, None, member, self.questions[self.index]))
 
 
 
     def __str__(self):
-        return "participants: "+ str(self.members) + \
-                " time: "+ str(self.time) + \
-                " name: "+ self.name + \
-                " on days: " + str(self.days) + \
-                " next meeting is at :" + str(self.upcoming)
-        # TODO change self.days from internal repr to days
+        members = ""
+        for m in self.members:
+            members += m
+        time = str(self.time[0]) + ":" + str(self.time[1])
+        return "participants: "+ str(members)  +  "\n\n"+ \
+                "time: "+ time + "\n\n"\
+                "next meeting is at :" + str(self.upcoming)
+
 
     def __lt__(self, other):
         return ((self.upcoming - other.upcoming).total_seconds() < 0)
