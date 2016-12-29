@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 from priority_queue import priority_queue
 from threading import Condition, Timer
 import pickle
@@ -42,8 +42,54 @@ def update_standup(new_standup=None):
     condition.notify()
     condition.release()
 
+def add_question(owner, name, question):
+    su = _fetch_standup(owner, name)
+    if su:
+        su.questions.append(question)
+        update_standup()
+        return "Question added succesfully. Use /viewquestions to see all question."
+    else:
+        return "You don't have any meeting named "+name
 
+def delete_question(owner, name, qno):
+    print("in standups delete question")
+    su = _fetch_standup(owner, name)
+    if su:
+        print(su.questions)
+        print(qno-1)
+        su.questions.pop(qno-1)
+        print("after pop")
+        update_standup()
+        print("returning")
+        return "Question deleted succesfully. Use /viewquestions to see all question."
+    else:
+        return "You don't have any meeting named "+name
 
+def view_questions(owner, name):
+    #print("in view question of standup")
+    su = _fetch_standup(owner, name)
+    if su:
+        res = ""
+        index = 1
+        for q in su.questions:
+            print(q)
+            res += str(index) + ". " + q + "\n\n"
+            index += 1
+        return res
+    else:
+        return "You don't have any meeting named "+name
+
+def add_default_questions(owner, name):
+    #print("in view question of standup")
+    su = _fetch_standup(owner, name)
+    if su:
+      #  print("returning ")
+       # print(su.questions)
+        su.questions.extend(default_questions)
+        update_standup()
+        return "Default questions have been added. Please use /viewquestions to check the questions."
+    else:
+        return "You don't have any meeting named "+name
 
 def add_room(owner, name, room_id):
     su = _fetch_standup(owner, name)
@@ -115,7 +161,7 @@ def upcoming_time(owner, name):
 
 
 
-def report(owner, name, stp=None):  #name, owner combination will be unique   #TODO should move this more appropriate location
+def report(owner, name, stp=None):  #name, owner combination will be unique   #TODO should move this more appropriate location     #stp is standup, no need to fetch
     if not stp:
         su = _fetch_standup(owner, name)
         if not su:
@@ -159,7 +205,7 @@ def validate_name(owner, name):
 class standup():
     def __init__(self, owner):
         #standup_interface.__init__(oq)
-        self.questions = default_questions
+        self.questions = []
         self.members = {}
         self.time = None
         self.days = 0   #124 1111100
@@ -207,13 +253,21 @@ class standup():
             elif self.index == 2:
                 days = list(text.lower().split())
                 week = {'mon': 0, 'tue': 1, 'wed': 2, 'thu': 3, 'fri': 4, 'sat': 5, 'sun': 6}   #TODO validate input
+                invalid_days = [day for day in days if day not in week]
+                if invalid_days:
+                    res = "These days are not valid "+ str(invalid_days) + "\n\nPlease enter any of sun, mon, tue, wed, thu, fri, sat."
+                    return res
                 selected_days = [day for day in week if day in days]
                 for day in selected_days:
                     self.days |= 1 << week[day]
             elif self.index == 3:
                 try:
-                    self.time = tuple(map(int, text.split(":")))
+                    print("shashank wants in validating time")
+                    self.time = tuple(map(int, text.split(":")))   #TODO Validate
+                    if self.time[0] > 23 or self.time[1] > 59 or self.time[0] < 0 or self.time[1] < 0:
+                        return "Invalid time! Try again."
                 except ValueError:
+                    print("exception")
                     return "Invalid time. Please enter time in HH:MM format."
 
                 self.upcoming = standup.find_upcoming(self.days, self.time[0], self.time[1])
@@ -239,6 +293,7 @@ class standup():
     #days = valid days, day = current day
     @staticmethod
     def get_valid_day(days, day):
+        print("get_valid_day " + str(day) + " " + str(days))
         if days > 127 or day > 7:
             return
         s = 0
@@ -247,39 +302,47 @@ class standup():
             s += 1
             day += 1
             day %= 7
+        print("s value " + str(s))
         return s
 
     @staticmethod
     def find_upcoming(days, h, m, skipnext=None):  #TODO fix skipnext bug
         now = datetime.now()
         if skipnext:
+            print("skipnext")
             s = standup.get_valid_day(days, (now.weekday()+1)%7)
         else:
+            print("shashank skipnext")
             s = standup.get_valid_day(days, now.weekday())
 
-        if s == 0 and now.hour < h or now.hour == h and now.minute < m:
-
+        if s == 0 and (now.hour < h or (now.hour == h and now.minute < m)):
+            print("shashank in if ")
             # valid time for today if today is valid
             upcoming = now.replace(hour=h, minute=m, second=0, microsecond=0)
         else:
+            print("shashnk in else")
             if s == 0:
                 # time has passed. get next valid day
                 s = standup.get_valid_day(days, (now.weekday() + 1) % 7)
-                s += 1
-            upcoming = now.replace(day=now.day + s, hour=h, minute=m, second=0, microsecond=0)
+                print("s is "+ str(s))
+               # s += 1
+                print(str(now.day)+" day")
+            upcoming = now.replace(day=now.day, hour=h, minute=m, second=0, microsecond=0) #ToDo crash fix day is out of range for month
+            upcoming = upcoming + timedelta(days=s)
         return upcoming
+
 
     def end_meeting(self):
         print("ending meeting")
         self.state = IDLE
         update_standup()
-        for member in subscriptions:
+        for member in subscriptions:     #TODO Shared variable
             standup_oq.put(message_unit(None, None, member, "Thanks you. Meeting has ended."))
         subscriptions.clear()
         su_report = report(None, None, self)
         standup_oq.put(message_unit(None, None, self.owner, su_report))
         for room in self.reporting_rooms:
-            standup.oq.put(message_unit(None, room, None, su_report))
+            standup_oq.put(message_unit(None, room, None, su_report))
 
 
     def run(self):
@@ -291,7 +354,7 @@ class standup():
             subscriptions.update({member: self})   #TODO synchronize
             self.state = RUNNING
             self.index = 0
-            standup_oq.put(message_unit(None, None, member, "Hey! " + "It's time for standup!"))
+            standup_oq.put(message_unit(None, None, member, "Hey! " + "It's time for "+ self.name + "!"))
             standup_oq.put(message_unit(None, None, member, default_questions[self.index]))
 
 

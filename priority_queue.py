@@ -58,10 +58,6 @@ class priority_queue:
             self.__perc_down(i)
             i-=1
 
-
-
-
-
     def __len__(self):
         return self.size
 

@@ -3,6 +3,7 @@ import pickle
 import threading
 from datetime import datetime
 import standup
+from bot_config import bot_name
 
 
 
@@ -14,12 +15,12 @@ iq = None
 oq = None
 
 
-
 def process(mu):
     cmd = mu.text
-
+    if cmd.startswith(bot_name):
+        cmd = cmd[len(bot_name):].lstrip()
     #global standups
-    if cmd == "/newstandup":
+    if cmd == "/newmeeting":
         new_standup = standup.standup(mu.person_email)
        #new_standup.iq.put(mu)
         mu.response = new_standup.create()    #TODO change to standup oq
@@ -88,22 +89,69 @@ def process(mu):
            cmd = cmd.split()[1]  # name
            mu.response = standup.skip_next(mu.person_email, cmd)
        except IndexError:
-           mu.response = "usage: /skipnext <standup name>"
+           mu.response = "usage: /skipnext 'meeting name'"
        oq.put(mu)
+    elif cmd.startswith("/viewquestions"):
+        print("got viewqeustions")
+        try:
+            cmd = cmd.split()[1]
+            mu.response = standup.view_questions(mu.person_email, cmd)
+        except IndexError:
+            mu.response = "usage: /viewquestions 'meeting name'"
+        oq.put(mu)
+
+    elif cmd.startswith("/defaultquestions"):
+        try:
+
+            cmd = cmd.split()[1]   #meeting name
+
+            mu.response = standup.add_default_questions(mu.person_email, cmd)
+        except(IndexError, ValueError):
+            mu.response = "usage: /defaultquestions 'meeting name'"
+        oq.put(mu)
+
+    elif cmd.startswith("/addquestion"):
+        try:
+            lst = cmd.split()
+            cmd = lst[1]
+            question = " ".join(lst[2:])
+            mu.response = standup.add_question(mu.person_email, cmd, question)
+        except IndexError:
+            mu.response = "usage: /addquestion 'new question'"
+        oq.put(mu)
+
+    elif cmd.startswith("/deletequestion"):
+        try:
+            lst = cmd.split()  #"cmd = /deletequestion abc 2"
+            cmd = lst[1]   # cmd = abc
+            print(cmd)
+            qno = int(lst[2])  #qno = 2
+            print(qno)
+            mu.response = standup.delete_question(mu.person_email, cmd, qno)
+        except IndexError:
+            mu.response = "usage: /deletequestion 'standup name' 'question number"
+        except ValueError:
+            mu.response = "Please use /viewquestions to check the question numbers. usage: /deletequestion 'standup name' 'question number"
+        oq.put(mu)
 
 
     elif cmd == "/help":
-        resp = "/newstandup - create a new standup\n\n" \
-                "/owned - see standups created by you\n\n" \
-               "/report 'standup name' - see report\n\n" \
-               "/run 'standup name - run the standup\n\n" \
-                "/when 'standup name' - show next scheduled time\n\n" \
-                "/cancel 'standup name' - delete standup\n\n" \
-                "/skipnext 'standup name' - skip next scheduled standup\n\n" \
-                "/addroom 'standup name' - report will be shared in the room\n\n" \
-                "/removeroom 'standup name' - stop sharing report in the room\n\n" \
-                "/add 'standupname' 'email' - add new participant to standup\n\n" \
-               "/delete 'standupname' 'email' - delete new participant to standup\n\n"
+        resp = "/newmeeting  - create a new meeting \n\n" \
+                "/owned - see meetings created by you\n\n" \
+               "/report 'meeting name' - see report\n\n" \
+               "/run 'meeting name - run the meeting \n\n" \
+                "/when 'meeting  name' - show next scheduled time\n\n" \
+                "/cancel 'meeting name' - delete meeting \n\n" \
+                "/skipnext 'meeting  name' - skip next scheduled meeting \n\n" \
+                "/addroom 'meeting  name' - report will be shared in the room\n\n" \
+                "/viewquestions 'meeting  name' - view the questions\n\n" \
+                "/defaultquestions 'meeting name' - add default question for the meeting\n\n" \
+                "/addquestion 'meeting  name' - add question to meeting\n\n" \
+                "/deletequestion 'meeting name' 'question number' - delete particualr question\n\n" \
+                "/removeroom 'meeting  name' - stop sharing report in the room\n\n" \
+                "/add 'meeting name' 'email' - add new participant to meeting \n\n" \
+               "/delete 'meeting name' 'email' - delete participant from meeting \n\n"
+
 
         mu.response = resp
         oq.put(mu)
@@ -127,6 +175,7 @@ def process(mu):
 
     else:
         if mu.person_email in standup.subscriptions:
+            print("sending to standup")
             mu.response = standup.subscriptions[mu.person_email].process(mu.text, mu.person_email)
             oq.put(mu)
         else:
