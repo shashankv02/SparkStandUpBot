@@ -272,7 +272,7 @@ class standup():
             elif self.index == 2:
                 week = {'mon': 0, 'tue': 1, 'wed': 2, 'thu': 3, 'fri': 4, 'sat': 5, 'sun': 6}  # TODO validate input
                 if text == "week":
-                    days = week
+                    days = 31 #0011111
                 else:
                     days = list(text.lower().split())
                 invalid_days = [day for day in days if day not in week]
